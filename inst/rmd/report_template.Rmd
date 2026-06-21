@@ -1,0 +1,85 @@
+---
+title: "`r params$report_title`"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  rmarkdown::html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+params:
+  ndvi_table: NULL
+  stages: NULL
+  ndvi_stack: NULL
+  parcels: NULL
+  report_title: "Rapport de suivi NDVI"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(ndviMonitor)
+library(ggplot2)
+
+ndvi_table <- params$ndvi_table
+stages <- params$stages
+ndvi_stack <- params$ndvi_stack
+parcels <- params$parcels
+```
+
+## Résumé
+
+Ce rapport a été généré automatiquement par le package **ndviMonitor**.
+Il résume le suivi de **`r length(unique(ndvi_table$parcel_id))`
+parcelle(s)** sur la période du
+**`r format(min(ndvi_table$date), '%d/%m/%Y')`** au
+**`r format(max(ndvi_table$date), '%d/%m/%Y')`**.
+
+```{r tab-summary}
+summary_tab <- stats::aggregate(
+  mean ~ parcel_id, data = ndvi_table,
+  FUN = function(x) round(mean(x, na.rm = TRUE), 3)
+)
+names(summary_tab) <- c("Parcelle", "NDVI moyen (periode)")
+knitr::kable(summary_tab)
+```
+
+## Évolution temporelle du NDVI
+
+```{r plot-curve, fig.width=8, fig.height=4.5}
+plot_ndvi_curve(ndvi_table, stages = stages)
+```
+
+## Stades phénologiques détectés
+
+```{r tab-stages}
+knitr::kable(stages)
+```
+
+## Alertes de stress
+
+```{r tab-alerts}
+if ("alert" %in% names(ndvi_table)) {
+  alerts <- ndvi_table[ndvi_table$alert, c("parcel_id", "date", "alert_type",
+                                            "pct_deviation")]
+  if (nrow(alerts) == 0) {
+    cat("Aucune alerte de stress détectée sur la période.")
+  } else {
+    knitr::kable(alerts, digits = 3)
+  }
+} else {
+  cat("Aucune information de stress fournie (voir detect_stress()).")
+}
+```
+
+## Carte NDVI
+
+```{r plot-map, fig.width=7, fig.height=6}
+if (!is.null(ndvi_stack)) {
+  plot_ndvi_map(ndvi_stack, parcels = parcels)
+} else {
+  cat("Aucun empilement raster fourni (parametre ndvi_stack).")
+}
+```
+
+---
+
+*Rapport généré automatiquement avec le package R `ndviMonitor`.*

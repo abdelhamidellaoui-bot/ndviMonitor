@@ -1,0 +1,174 @@
+---
+title: "Prise en main de ndviMonitor"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Prise en main de ndviMonitor}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5
+)
+```
+
+## Présentation
+
+`ndviMonitor` est un package R pour le suivi phénologique des cultures à
+partir de séries temporelles de NDVI (Normalized Difference Vegetation
+Index) dérivées d'images **Sentinel-2**. Il permet de :
+
+1. importer des parcelles agricoles (shapefile / GeoJSON) ;
+2. télécharger des images Sentinel-2 réelles via le catalogue STAC
+   public **Microsoft Planetary Computer** ;
+3. calculer le NDVI ;
+4. extraire des statistiques NDVI par parcelle ;
+5. lisser les séries temporelles ;
+6. détecter des stades phénologiques simples et des anomalies de
+   stress ;
+7. produire des graphiques, des cartes et un rapport HTML automatique.
+
+Cette vignette utilise le **jeu de données de démonstration** fourni
+avec le package (parcelles et bandes Sentinel-2 synthétiques), afin
+d'être reproductible sans connexion Internet. Pour une utilisation avec
+des données réelles, voir la section
+[Utilisation avec des données réelles](#reelles) en fin de document.
+
+```{r setup}
+library(ndviMonitor)
+library(ggplot2)
+```
+
+## 1. Importer des parcelles agricoles
+
+Le jeu de données `demo_parcels`, fourni avec le package, représente 4
+parcelles synthétiques inspirées de la plaine du Gharb, près de Kénitra
+(Maroc) — une région agricole réelle cultivée notamment en blé,
+betterave sucrière, maïs et riz.
+
+```{r import}
+parcels_path <- system.file("extdata", "demo_parcels.geojson",
+                             package = "ndviMonitor")
+parcels <- import_parcels(parcels_path, plot = FALSE)
+parcels
+```
+
+```{r plot-parcels, fig.height=4}
+plot(sf::st_geometry(parcels), col = "#A8D5BA", border = "#2E7D32",
+     main = "Parcelles agricoles (demo)")
+```
+
+## 2. Calculer le NDVI
+
+En conditions réelles, on téléchargerait d'abord les bandes Rouge (B04)
+et Proche Infrarouge (B08) avec [download_sentinel()], puis on
+calculerait le NDVI avec [calc_ndvi()]. Ici, la fonction de confort
+`ndvi_demo_stack()` reconstruit directement un empilement NDVI à partir
+des bandes synthétiques fournies dans le package (7 dates, de février à
+juin 2024) :
+
+```{r ndvi-stack}
+ndvi_stack <- ndvi_demo_stack()
+ndvi_stack
+```
+
+```{r plot-map}
+plot_ndvi_map(ndvi_stack, parcels = parcels,
+              title = "NDVI - derniere date disponible")
+```
+
+## 3. Extraire le NDVI par parcelle
+
+```{r extract}
+ndvi_table <- extract_ndvi(ndvi_stack, parcels)
+head(ndvi_table)
+```
+
+## 4. Lisser la série temporelle
+
+```{r smooth}
+ndvi_table <- smooth_timeseries(ndvi_table, method = "moving_average",
+                                 window = 3)
+head(ndvi_table)
+```
+
+```{r plot-curve}
+plot_ndvi_curve(ndvi_table)
+```
+
+## 5. Détecter les stades phénologiques
+
+```{r stages}
+stages <- detect_growth_stage(ndvi_table, growth_threshold = 0.3,
+                               senescence_drop = 0.10)
+stages
+```
+
+```{r plot-curve-stages}
+plot_ndvi_curve(ndvi_table, stages = stages,
+                 title = "NDVI et pics vegetatifs detectes")
+```
+
+## 6. Détecter les anomalies de stress
+
+`detect_stress()` compare chaque observation à la moyenne historique de
+la parcelle. **Remarque** : cette méthode simple est conçue à des fins
+pédagogiques — sur un signal très saisonnier comme le NDVI, elle peut
+signaler comme "anomalies" les phases naturelles de début et de fin de
+saison. Pour un usage en production, il est préférable de comparer
+chaque date à la même période lors des saisons précédentes.
+
+```{r stress}
+ndvi_table <- detect_stress(ndvi_table, drop_threshold = 0.20)
+subset(ndvi_table, alert, select = c(parcel_id, date, alert_type, pct_deviation))
+```
+
+## 7. Générer un rapport automatique
+
+```{r report, eval=FALSE}
+generate_report(
+  ndvi_table, stages,
+  ndvi_stack = ndvi_stack, parcels = parcels,
+  output_file = "rapport_ndvi.html",
+  title = "Suivi NDVI - Parcelles demonstration"
+)
+```
+
+La fonction [generate_report()] compile un rapport HTML autonome
+(courbes, carte, tableau des stades, alertes) à l'aide de
+**R Markdown**.
+
+## Utilisation avec des données réelles {#reelles}
+
+Pour utiliser `ndviMonitor` avec vos propres parcelles et de vraies
+images Sentinel-2 :
+
+```r
+# 1. Importer vos parcelles (shapefile ou GeoJSON)
+parcels <- import_parcels("mes_parcelles.shp")
+
+# 2. Telecharger les images Sentinel-2 reelles
+#    (catalogue public Microsoft Planetary Computer, sans cle API)
+sentinel <- download_sentinel(
+  parcels,
+  start_date = "2024-01-01", end_date = "2024-07-01",
+  max_cloud_cover = 20, dest_dir = "sentinel_data"
+)
+
+# 3. Calculer le NDVI a partir des bandes telechargees
+red_files <- sentinel$files[grepl("B04", sentinel$files)]
+nir_files <- sentinel$files[grepl("B08", sentinel$files)]
+dates <- unique(sub("_B0[48]\\.tif$", "", basename(sentinel$files)))
+
+ndvi_stack <- calc_ndvi(red_files, nir_files, dates = dates)
+
+# 4. Poursuivre l'analyse comme dans cette vignette
+ndvi_table <- extract_ndvi(ndvi_stack, parcels)
+```
+
+Le téléchargement nécessite le package `rstac`
+(`install.packages("rstac")`) et un accès Internet.
