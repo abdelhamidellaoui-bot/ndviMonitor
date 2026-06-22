@@ -277,13 +277,10 @@ stages
 plot_ndvi_curve(ndvi_table, stages = stages)
 ```
 
-<img src="man/figures/README-curve-example-1.png" width="100%" />
 
 ``` r
 plot_ndvi_map(ndvi_stack, parcels = demo_parcels)
 ```
-
-<img src="man/figures/README-map-example-1.png" width="100%" />
 
 ------------------------------------------------------------------------
 
