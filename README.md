@@ -455,13 +455,13 @@ plot_ndvi_curve(ndvi_table, stages = stages,
                  title = "Suivi NDVI - parcelles demonstration")
 ```
 
-<img src="man/figures/README-viz-curve-detail-1.png" width="100%" />
+<img src="man/figures/README-curve-example-1.png" width="100%" />
 
 ``` r
 plot_ndvi_map(ndvi_stack, parcels = parcels, title = "NDVI - derniere date")
 ```
 
-<img src="man/figures/README-viz-map-detail-1.png" width="100%" />
+<img src="man/figures/README-map-example-1.png" width="100%" />
 
 ### 9. Générer un rapport automatique
 
