@@ -9,3 +9,5 @@
 ^\.gitignore$
 ^docs$
 ^_pkgdown\.yml$
+^\.positai$
+^\.claude$
