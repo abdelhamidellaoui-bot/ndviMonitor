@@ -554,6 +554,6 @@ MIT © Auteurs de ndviMonitor — voir [LICENSE.md](LICENSE.md).
 citation("ndviMonitor")
 ```
 
-    Etudiant Projet (2026). ndviMonitor : Phenological Monitoring of Crops
+    Abdelhamid Ellaoui (2026). ndviMonitor : Phenological Monitoring of Crops
     from Sentinel-2 NDVI Time Series. R package version 0.1.0.
     https://github.com/abdelhamidellaoui-bot/ndviMonitor
